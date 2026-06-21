@@ -1,5 +1,9 @@
 # Captain
 
+<p align="center">
+    <img src="./assets/captain-banner.png" alt="Captain - Captain's Manifest" width="100%" />
+</p>
+
 Captain is a CLI tool for generating and maintaining **Captain's Manifest** files inside monolithic or multi-component projects.
 
 Captain helps projects define:
