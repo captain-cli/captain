@@ -1,0 +1,45 @@
+{
+  "name": "@captain/manifest",
+  "version": "0.1.0",
+  "description": "Captain CLI for generating project manifests, version lanes, bump rules, and release metadata for monolithic projects.",
+  "type": "module",
+  "bin": {
+    "captain": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "postbuild": "chmod +x dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "clean": "rm -rf dist",
+    "check": "tsc --noEmit",
+    "test:simple": "npm run build && node dist/cli.js --help"
+  },
+  "keywords": [
+    "manifest",
+    "versioning",
+    "monolith",
+    "monorepo",
+    "cli",
+    "release",
+    "bump",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3"
+  }
+}
