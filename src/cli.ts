@@ -11,6 +11,7 @@ import { registerAnalyzeBumpsCommand } from "./commands/analyzeBumps.js";
 import { registerBumpCommand } from "./commands/bump.js";
 import { registerValidateCommand } from "./commands/validate.js";
 import { registerStatusCommand } from "./commands/status.js";
+import { registerPrepareRuntimeCommand } from "./commands/prepareRuntime.js";
 
 const program = new Command();
 
@@ -28,5 +29,6 @@ registerAnalyzeBumpsCommand(program);
 registerBumpCommand(program);
 registerValidateCommand(program);
 registerStatusCommand(program);
+registerPrepareRuntimeCommand(program);
 
 program.parse(process.argv);
