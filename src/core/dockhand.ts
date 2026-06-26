@@ -33,10 +33,13 @@ export function printDockhandMissingHelp(configPath: string): void {
     console.error("");
     console.error("Dockhand is optional. Install it only for projects that need runtime port/env preparation.");
     console.error("");
-    console.error("Install from the captain-cli org:");
+    console.error("Install guidance:");
+    console.error("");
+    console.error("  captain tools install dockhand --print");
+    console.error("");
+    console.error("Or install directly from the captain-cli org:");
     console.error("");
     console.error("  python -m pip install git+ssh://git@github.com/captain-cli/dockhand.git");
-    console.error("");
     console.error("Then run directly:");
     console.error("");
     console.error(`  dockhand ports plan --config ${configPath}`);

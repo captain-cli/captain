@@ -12,6 +12,7 @@ import { registerBumpCommand } from "./commands/bump.js";
 import { registerValidateCommand } from "./commands/validate.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerPrepareRuntimeCommand } from "./commands/prepareRuntime.js";
+import { registerToolsCommand } from "./commands/tools.js";
 
 const program = new Command();
 
@@ -30,5 +31,6 @@ registerBumpCommand(program);
 registerValidateCommand(program);
 registerStatusCommand(program);
 registerPrepareRuntimeCommand(program);
+registerToolsCommand(program);
 
 program.parse(process.argv);
