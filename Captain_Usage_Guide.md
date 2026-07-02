@@ -1000,3 +1000,22 @@ The CLI should own the process of creating and maintaining:
 GitHub Actions and other automation should call Captain rather than duplicating Captain logic.
 
 Captain's Manifest is the project map. Captain is the tool that maintains it.
+
+## Companion Tool Registry
+
+Captain has a `tools` command group for optional companion CLIs. This allows project-agnostic utilities such as Dockhand and Servicewright to be discovered, checked, and installed without baking their logic into every project.
+
+```bash
+captain tools list
+captain tools doctor
+captain tools install servicewright --print
+```
+
+Tool projects can ship their own `captain/tool.json` manifest. From a consuming project, add that manifest to the local Captain registry:
+
+```bash
+captain tools registry add ./captain/tool.json
+captain tools registry list
+```
+
+The local registry is written to `.captain/tools.json` and is merged with Captain's built-in tool list at runtime.

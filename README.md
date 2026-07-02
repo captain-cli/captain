@@ -405,3 +405,65 @@ GitHub Actions and other automation should call Captain instead of duplicating C
 Captain is in early development.
 
 The immediate goal is to build enough CLI functionality to initialize and manage the small `simple-monolith` test project before applying the pattern to Crispy Disco.
+
+## Captain Tool Registry
+
+Captain can manage companion tools through the `tools` command. Built-in tools are registered in the CLI, and project-local tools can be added from a `captain/tool.json` manifest.
+
+### Built-in companion tools
+
+Captain currently knows about:
+
+- `dockhand` — runtime port/env preparation and reservation management
+- `servicewright` — project-agnostic systemd service unit generation
+
+List available tools:
+
+```bash
+captain tools list
+```
+
+Check whether companion tool binaries are installed:
+
+```bash
+captain tools doctor
+```
+
+Print the install command for Servicewright:
+
+```bash
+captain tools install servicewright --print
+```
+
+Install all known companion tools into a local virtual environment:
+
+```bash
+captain tools install all --venv .venv
+export PATH="$PWD/.venv/bin:$PATH"
+```
+
+### Project-local registry
+
+A reusable tool project can ship a Captain manifest at:
+
+```text
+captain/tool.json
+```
+
+Register it in the consuming project:
+
+```bash
+captain tools registry add ./captain/tool.json
+```
+
+Captain stores project-local registry entries in:
+
+```text
+.captain/tools.json
+```
+
+Show project-local registry entries:
+
+```bash
+captain tools registry list
+```

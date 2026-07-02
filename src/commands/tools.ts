@@ -1,8 +1,10 @@
 import { Command } from "commander";
 
 import {
+    addToolManifest,
     getInstallTargets,
     installTool,
+    printProjectRegistry,
     printToolDoctor,
     printToolList,
     type ToolInstallMode,
@@ -52,6 +54,34 @@ export function registerToolsCommand(program: Command): void {
 
             if (status !== 0) {
                 process.exitCode = status;
+            }
+        });
+
+
+    const registry = tools
+        .command("registry")
+        .description("Manage the project-local Captain tool registry");
+
+    registry
+        .command("list")
+        .description("List project-local registered tools")
+        .action(() => {
+            printProjectRegistry();
+        });
+
+    registry
+        .command("add")
+        .description("Add a Captain tool manifest to the project-local registry")
+        .argument("<manifest>", "Path to captain/tool.json")
+        .action((manifest: string) => {
+            try {
+                const tool = addToolManifest(manifest);
+                console.log(`Registered Captain tool: ${tool.name}`);
+                console.log("");
+                console.log("Registry updated: .captain/tools.json");
+            } catch (error) {
+                console.error(error instanceof Error ? error.message : String(error));
+                process.exitCode = 1;
             }
         });
 
