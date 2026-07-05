@@ -1,6 +1,6 @@
 {
   "name": "@captain/manifest",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Captain CLI for generating project manifests, version lanes, bump rules, and release metadata for monolithic projects.",
   "type": "module",
   "bin": {

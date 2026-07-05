@@ -13,13 +13,14 @@ import { registerValidateCommand } from "./commands/validate.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerPrepareRuntimeCommand } from "./commands/prepareRuntime.js";
 import { registerToolsCommand } from "./commands/tools.js";
+import { registerDeployCommand } from "./commands/deploy.js";
 
 const program = new Command();
 
 program
     .name("captain")
     .description("Captain's Manifest CLI")
-    .version("0.1.0", "-V, --cli-version", "output the Captain CLI version");
+    .version("0.2.0", "-V, --cli-version", "output the Captain CLI version");
 
 registerInitCommand(program);
 registerLaneCommand(program);
@@ -32,5 +33,6 @@ registerValidateCommand(program);
 registerStatusCommand(program);
 registerPrepareRuntimeCommand(program);
 registerToolsCommand(program);
+registerDeployCommand(program);
 
 program.parse(process.argv);

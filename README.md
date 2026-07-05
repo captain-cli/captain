@@ -467,3 +467,40 @@ Show project-local registry entries:
 ```bash
 captain tools registry list
 ```
+
+## Deploy Preparation
+
+Captain can orchestrate the Dockhand → Servicewright runtime preparation flow for projects that ship a `servicewright.json` file.
+
+```bash
+captain deploy prepare
+```
+
+The default flow is:
+
+```text
+servicewright.json
+  ↓
+dockhand servicewright reconcile
+  ↓
+.captain/runtime/servicewright.resolved.json
+.captain/runtime/environment/*.env
+  ↓
+servicewright generate
+  ↓
+systemd_units/*.service
+  ↓
+servicewright validate
+```
+
+Useful options:
+
+```bash
+captain deploy prepare --dry-run
+captain deploy prepare --print
+captain deploy prepare --servicewright-config servicewright.json
+captain deploy prepare --output-dir ./systemd_units
+captain deploy prepare --skip-validate
+```
+
+The command keeps Dockhand responsible for runtime port assignment and keeps Servicewright responsible for rendering and validating systemd units.

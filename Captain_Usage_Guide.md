@@ -1019,3 +1019,60 @@ captain tools registry list
 ```
 
 The local registry is written to `.captain/tools.json` and is merged with Captain's built-in tool list at runtime.
+
+---
+
+### `captain deploy prepare`
+
+Prepare deployable runtime artifacts using Dockhand and Servicewright.
+
+```bash
+captain deploy prepare
+```
+
+This command runs the verified handoff pipeline:
+
+```text
+Dockhand reconciles Servicewright runtime ports
+Servicewright generates systemd unit files
+Servicewright validates the generated units
+```
+
+Default inputs and outputs:
+
+```text
+servicewright.json
+.captain/runtime/servicewright.resolved.json
+.captain/runtime/environment/*.env
+systemd_units/*.service
+```
+
+Preview only:
+
+```bash
+captain deploy prepare --dry-run --json
+```
+
+Print the underlying commands without running them:
+
+```bash
+captain deploy prepare --print
+```
+
+Use custom paths:
+
+```bash
+captain deploy prepare \
+  --servicewright-config servicewright.json \
+  --write-config .captain/runtime/servicewright.resolved.json \
+  --write-env .captain/runtime/environment \
+  --output-dir systemd_units
+```
+
+Skip validation after generation:
+
+```bash
+captain deploy prepare --skip-validate
+```
+
+Captain does not assign ports directly. Dockhand owns runtime assignment and Servicewright owns systemd generation.
