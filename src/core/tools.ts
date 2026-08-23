@@ -2,14 +2,17 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-export type ToolInstallManager = "pip";
+export type ToolInstallManager =
+    | "pip"
+    | "npm"
+    | "external";
 
 export type ToolDefinition = {
     name: string;
     description: string;
     binary: string;
     manager: ToolInstallManager;
-    packageSpec: string;
+    packageSpec?: string;
     version?: string;
     category?: string;
     source?: "builtin" | "project";
@@ -42,6 +45,22 @@ export const CAPTAIN_TOOLS: ToolDefinition[] = [
         ],
     },
     {
+        name: "outfit",
+        description:
+            "Trusted operating-system dependency provisioning",
+        binary: "outfit",
+        manager: "external",
+        category: "system",
+        source: "builtin",
+        capabilities: [
+            "system.dependencies.resolve",
+            "system.dependencies.plan",
+            "system.dependencies.approve",
+            "system.dependencies.apply",
+            "system.dependencies.verify"
+        ],
+    },
+    {
         name: "servicewright",
         description: "Project-agnostic systemd service unit generator",
         binary: "servicewright",
@@ -56,6 +75,23 @@ export const CAPTAIN_TOOLS: ToolDefinition[] = [
             "environment-file.reference",
         ],
     },
+    {
+        name: "stager",
+        description:
+            "Project staging and controlled file preparation for Captain workflows",
+        binary: "stager",
+        manager: "npm",
+        packageSpec:
+            "git+ssh://git@github.com/captain-cli/stager.git",
+        category: "development",
+        source: "builtin",
+        capabilities: [
+            "project.stage",
+            "files.prepare",
+            "workspace.prepare"
+        ],
+    },
+
 ];
 
 function resolveRegistryPath(registryPath = DEFAULT_REGISTRY_PATH): string {
@@ -65,6 +101,14 @@ function resolveRegistryPath(registryPath = DEFAULT_REGISTRY_PATH): string {
 function ensureToolInstallManager(value: unknown): ToolInstallManager {
     if (value === "pip" || !value) {
         return "pip";
+    }
+
+    if (
+        value === "pip" ||
+        value === "npm" ||
+        value === "external"
+    ) {
+        return value;
     }
 
     throw new Error(`Unsupported tool install manager: ${String(value)}`);
@@ -211,9 +255,15 @@ export function getTool(name: string): ToolDefinition | undefined {
     return getAllTools().find((tool) => tool.name === name);
 }
 
-export function getInstallTargets(target: string): ToolDefinition[] {
+export function getInstallTargets(
+    target: string
+): ToolDefinition[] {
     if (target === "all") {
-        return getAllTools();
+        return getAllTools()
+            .filter(
+                (tool) =>
+                    tool.manager !== "external"
+            );
     }
 
     const tool = getTool(target);
@@ -254,8 +304,34 @@ export function buildInstallCommand(
         venvPath?: string;
     },
 ): string[] {
+    if (tool.manager === "external") {
+        throw new Error(
+            `${tool.name} requires external/system installation`
+        );
+    }
+
+    if (!tool.packageSpec) {
+        throw new Error(
+            `${tool.name} is missing an install package specification`
+        );
+    }
+
+    const packageSpec =
+        tool.packageSpec;
+
+    if (tool.manager === "npm") {
+        return [
+            "npm",
+            "install",
+            "--global",
+            packageSpec
+        ];
+    }
+
     if (tool.manager !== "pip") {
-        throw new Error(`Unsupported install manager: ${tool.manager}`);
+        throw new Error(
+            `Unsupported install manager: ${tool.manager}`
+        );
     }
 
     if (options.mode === "venv") {
@@ -347,7 +423,20 @@ export function installTool(
         printOnly?: boolean;
     },
 ): number {
-    const command = buildInstallCommand(tool, options);
+
+    if (tool.manager === "external") {
+        console.error(
+            `${tool.name} requires external/system installation and cannot be installed by Captain`
+        );
+
+        return 1;
+    }
+
+    const command =
+        buildInstallCommand(
+            tool,
+            options
+        );
 
     if (options.printOnly || options.mode === "print") {
         printInstallCommand(tool, options);
@@ -440,10 +529,49 @@ export function printToolDoctor(): number {
 
     console.log("");
 
-    if (missingCount > 0) {
-        console.log("Missing optional tools can be installed with:");
+    const missingManaged =
+        getAllTools()
+            .filter(
+                (tool) =>
+                    tool.manager !== "external" &&
+                    !toolExists(tool)
+            );
+
+    const missingExternal =
+        getAllTools()
+            .filter(
+                (tool) =>
+                    tool.manager === "external" &&
+                    !toolExists(tool)
+            );
+
+    if (missingManaged.length > 0) {
+        console.log(
+            "Missing Captain-managed tools can be installed with:"
+        );
+
         console.log("");
-        console.log("  captain tools install all --print");
+
+        console.log(
+            "  captain tools install all --print"
+        );
+    }
+
+    if (missingExternal.length > 0) {
+        console.log("");
+
+        console.log(
+            "External/system tools must be installed separately:"
+        );
+
+        for (
+            const tool of
+            missingExternal
+            ) {
+            console.log(
+                `  - ${tool.name}`
+            );
+        }
     }
 
     return missingCount > 0 ? 1 : 0;

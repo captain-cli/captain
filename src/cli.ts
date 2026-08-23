@@ -14,6 +14,9 @@ import { registerStatusCommand } from "./commands/status.js";
 import { registerPrepareRuntimeCommand } from "./commands/prepareRuntime.js";
 import { registerToolsCommand } from "./commands/tools.js";
 import { registerDeployCommand } from "./commands/deploy.js";
+import {
+    registerSystemCommand
+} from "./commands/system.js";
 
 const program = new Command();
 
@@ -34,5 +37,8 @@ registerStatusCommand(program);
 registerPrepareRuntimeCommand(program);
 registerToolsCommand(program);
 registerDeployCommand(program);
+registerSystemCommand(
+    program
+);
 
 program.parse(process.argv);

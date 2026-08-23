@@ -1,5 +1,9 @@
 export type ProjectType = "monolith" | "monorepo" | "package" | "application";
 
+export interface CaptainSystemRequirements {
+    requires: string[];
+}
+
 export interface CaptainProject {
     schema: string;
     project: {
@@ -8,7 +12,14 @@ export interface CaptainProject {
         version: string;
         homePage?: string;
     };
-    versionLanes: Record<string, CaptainVersionLane>;
+
+    system?: CaptainSystemRequirements;
+
+    versionLanes: Record<
+        string,
+        CaptainVersionLane
+    >;
+
     components: CaptainComponent[];
 }
 
