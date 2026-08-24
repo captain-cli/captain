@@ -5,6 +5,35 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
+export interface OutfitApproveResponse {
+    tool: string;
+    version: string;
+    operation: string;
+    status: string;
+    changed: boolean;
+
+    result?: {
+        approval?: {
+            planId: string;
+
+            fingerprint: {
+                algorithm: string;
+                value: string;
+            };
+
+            approvedAt: string;
+            registryVersion: string;
+            platform: string;
+            packageManager: string;
+        };
+
+        artifact?: {
+            type: string;
+            path: string;
+        };
+    };
+}
+
 export interface OutfitPlanResponse {
     tool: string;
     version: string;
@@ -37,11 +66,123 @@ export interface OutfitPlanResponse {
     };
 }
 
+export interface OutfitApplyResponse {
+    status:
+        | "success"
+        | "failed"
+        | "satisfied";
+
+    changed:
+        boolean;
+
+    executed:
+        boolean;
+
+    receiptPath:
+        string | null;
+
+    receipt:
+        unknown | null;
+
+    error?: {
+        message: string;
+    };
+}
+
 export interface OutfitSystemStatus {
     available: boolean;
     satisfied: boolean;
     pendingChanges: number;
     response: OutfitPlanResponse;
+}
+
+export function approveOutfitSystem(
+    rootDir: string
+): OutfitApproveResponse {
+    const stateDir =
+        getOutfitStateDir(
+            rootDir
+        );
+
+    const planPath =
+        path.join(
+            stateDir,
+            "plan.json"
+        );
+
+    const approvalPath =
+        path.join(
+            stateDir,
+            "approval.json"
+        );
+
+    return invokeOutfit<
+        OutfitApproveResponse
+    >([
+        "approve",
+
+        "--plan",
+        planPath,
+
+        "--output",
+        approvalPath,
+
+        "--json"
+    ]);
+}
+
+export function applyOutfitSystem(
+    rootDir: string,
+    registryPath: string
+): OutfitApplyResponse {
+    const stateDir =
+        getOutfitStateDir(
+            rootDir
+        );
+
+    const manifestPath =
+        path.join(
+            stateDir,
+            "manifest.json"
+        );
+
+    const planPath =
+        path.join(
+            stateDir,
+            "plan.json"
+        );
+
+    const approvalPath =
+        path.join(
+            stateDir,
+            "approval.json"
+        );
+
+    return invokeOutfit<
+        OutfitApplyResponse
+    >(
+        [
+            "apply",
+
+            "--manifest",
+            manifestPath,
+
+            "--registry",
+            registryPath,
+
+            "--plan",
+            planPath,
+
+            "--approval",
+            approvalPath,
+
+            "--json"
+        ],
+        {
+            allowNonZero:
+                true
+        }
+    );
 }
 
 export function getOutfitStateDir(
@@ -89,11 +230,68 @@ export function writeOutfitManifest(
     return manifestPath;
 }
 
-export function getOutfitStatus(
+
+
+function invokeOutfit<T>(
+    args: string[],
+    options: {
+        allowNonZero?: boolean;
+    } = {}
+): T {
+    const result =
+        spawnSync(
+            "outfit",
+            args,
+            {
+                encoding:
+                    "utf-8",
+
+                stdio: [
+                    "ignore",
+                    "pipe",
+                    "pipe"
+                ]
+            }
+        );
+
+    if (result.error) {
+        throw new Error(
+            result.error.message
+        );
+    }
+
+    let response: T;
+
+    try {
+        response =
+            JSON.parse(
+                result.stdout
+            ) as T;
+    } catch {
+        throw new Error(
+            result.stderr.trim() ||
+            "Outfit returned invalid JSON"
+        );
+    }
+
+    if (
+        result.status !== 0 &&
+        !options.allowNonZero
+    ) {
+        throw new Error(
+            result.stderr.trim() ||
+            "Outfit command failed"
+        );
+    }
+
+    return response;
+}
+
+export function planOutfitSystem(
     rootDir: string,
     requirements: string[],
     registryPath: string
-): OutfitSystemStatus {
+): OutfitPlanResponse {
     const manifestPath =
         writeOutfitManifest(
             rootDir,
@@ -108,59 +306,35 @@ export function getOutfitStatus(
             "plan.json"
         );
 
-    const result =
-        spawnSync(
-            "outfit",
-            [
-                "plan",
+    return invokeOutfit<
+        OutfitPlanResponse
+    >([
+        "plan",
 
-                "--manifest",
-                manifestPath,
+        "--manifest",
+        manifestPath,
 
-                "--registry",
-                registryPath,
+        "--registry",
+        registryPath,
 
-                "--output",
-                planPath,
+        "--output",
+        planPath,
 
-                "--json"
-            ],
-            {
-                encoding:
-                    "utf-8",
+        "--json"
+    ]);
+}
 
-                stdio: [
-                    "ignore",
-                    "pipe",
-                    "pipe"
-                ]
-            }
+export function getOutfitStatus(
+    rootDir: string,
+    requirements: string[],
+    registryPath: string
+): OutfitSystemStatus {
+    const response =
+        planOutfitSystem(
+            rootDir,
+            requirements,
+            registryPath
         );
-
-    if (
-        result.error ||
-        result.status !== 0
-    ) {
-        throw new Error(
-            result.stderr.trim() ||
-            result.error?.message ||
-            "Outfit plan failed"
-        );
-    }
-
-    let response:
-        OutfitPlanResponse;
-
-    try {
-        response =
-            JSON.parse(
-                result.stdout
-            ) as OutfitPlanResponse;
-    } catch {
-        throw new Error(
-            "Outfit returned invalid JSON"
-        );
-    }
 
     const changes =
         response.result
@@ -171,10 +345,13 @@ export function getOutfitStatus(
 
     return {
         available: true,
+
         satisfied:
             changes.length === 0,
+
         pendingChanges:
         changes.length,
+
         response
     };
 }
