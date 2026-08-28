@@ -17,6 +17,9 @@ import { registerDeployCommand } from "./commands/deploy.js";
 import {
     registerSystemCommand
 } from "./commands/system.js";
+import {
+    registerBuildCommand
+} from "./commands/build.js";
 
 const program = new Command();
 
@@ -40,5 +43,6 @@ registerDeployCommand(program);
 registerSystemCommand(
     program
 );
+registerBuildCommand(program);
 
 program.parse(process.argv);
