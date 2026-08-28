@@ -56,3 +56,15 @@ export interface CaptainBuildManifest {
     build: CaptainBuildExecution;
     package: CaptainBuildPackage;
 }
+
+export interface CaptainBuildVendorPaths {
+    build?: string[];
+    runtime?: string[];
+}
+
+export interface CaptainBuildVendorDependency {
+    name: string;
+    type: string;
+    requiredAt: string[];
+    paths?: CaptainBuildVendorPaths;
+}
