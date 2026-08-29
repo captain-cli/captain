@@ -9,6 +9,10 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
+import {
+    runBuild
+} from "../core/buildRunner.js";
+
 function printBuildPlan(
     rootDir: string
 ): void {
@@ -377,4 +381,122 @@ export function registerBuildCommand(
                 );
             }
         );
+
+    build
+        .command("run")
+        .description(
+            "Execute the project build"
+        )
+        .action(
+            () => {
+                executeBuild(
+                    process.cwd()
+                );
+            }
+        );
+}
+
+function executeBuild(
+    rootDir: string
+): void {
+    const manifest =
+        readBuildManifest(
+            rootDir
+        );
+
+    console.log(
+        "Build Run"
+    );
+
+    console.log("");
+
+    console.log(
+        `Application: ${manifest.application.name}`
+    );
+
+    console.log("");
+
+    const result =
+        runBuild(
+            rootDir,
+            manifest
+        );
+
+    if (
+        result.failedCommand
+    ) {
+        console.log("");
+
+        console.log(
+            "Build result: failed"
+        );
+
+        console.log(
+            `Failed command: ${result.failedCommand}`
+        );
+
+        process.exitCode =
+            1;
+
+        return;
+    }
+
+    if (
+        result.missingOutputs.length >
+        0
+    ) {
+        console.log(
+            "Expected outputs:"
+        );
+
+        for (
+            const output
+            of manifest.build.outputs
+            ) {
+            const missing =
+                result.missingOutputs.includes(
+                    output
+                );
+
+            console.log(
+                missing
+                    ? `  ✗ ${output}`
+                    : `  ✓ ${output}`
+            );
+        }
+
+        console.log("");
+
+        console.log(
+            "Build result: failed"
+        );
+
+        console.log(
+            `Reason: ${result.missingOutputs.length} expected output(s) missing`
+        );
+
+        process.exitCode =
+            1;
+
+        return;
+    }
+
+    console.log(
+        "Expected outputs:"
+    );
+
+    for (
+        const output
+        of manifest.build.outputs
+        ) {
+        console.log(
+            `  ✓ ${output}`
+        );
+    }
+
+    console.log("");
+
+    console.log(
+        "Build result: succeeded"
+    );
 }
