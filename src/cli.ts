@@ -20,6 +20,7 @@ import {
 import {
     registerBuildCommand
 } from "./commands/build.js";
+import { registerPackageCommand } from "./commands/package.js";
 
 const program = new Command();
 
@@ -44,5 +45,6 @@ registerSystemCommand(
     program
 );
 registerBuildCommand(program);
+registerPackageCommand(program);
 
 program.parse(process.argv);

@@ -13,6 +13,10 @@ import {
     runBuild
 } from "../core/buildRunner.js";
 
+import {
+    packageBuild
+} from "../core/buildPackager.js";
+
 function printBuildPlan(
     rootDir: string
 ): void {
@@ -394,6 +398,19 @@ export function registerBuildCommand(
                 );
             }
         );
+
+    build
+        .command("package")
+        .description(
+            "Materialize the project package artifact"
+        )
+        .action(
+            () => {
+                executePackage(
+                    process.cwd()
+                );
+            }
+        );
 }
 
 function executeBuild(
@@ -498,5 +515,81 @@ function executeBuild(
 
     console.log(
         "Build result: succeeded"
+    );
+}
+
+function executePackage(
+    rootDir: string
+): void {
+    const manifest =
+        readBuildManifest(
+            rootDir
+        );
+
+    console.log(
+        "Build Package"
+    );
+
+    console.log("");
+
+    console.log(
+        `Application: ${manifest.application.name}`
+    );
+
+    console.log("");
+
+    const result =
+        packageBuild(
+            rootDir,
+            manifest
+        );
+
+    console.log(
+        "Package contents:"
+    );
+
+    for (
+        const entry
+        of manifest.package.include
+        ) {
+        const missing =
+            result.missingEntries.includes(
+                entry
+            );
+
+        console.log(
+            missing
+                ? `  ✗ ${entry}`
+                : `  ✓ ${entry}`
+        );
+    }
+
+    console.log("");
+
+    if (
+        !result.success
+    ) {
+        console.log(
+            "Package result: failed"
+        );
+
+        console.log(
+            `Reason: ${result.missingEntries.length} package entry or entries missing`
+        );
+
+        process.exitCode =
+            1;
+
+        return;
+    }
+
+    console.log(
+        `Artifact directory: ${result.artifactDirectory}`
+    );
+
+    console.log("");
+
+    console.log(
+        "Package result: succeeded"
     );
 }

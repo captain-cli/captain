@@ -4,6 +4,20 @@ export interface CaptainSystemRequirements {
     requires: string[];
 }
 
+
+export interface CaptainPackagingConfig {
+    stagingRoot?: string;
+    outputRoot?: string;
+    stager: {
+        manifest: string;
+        target: string;
+    };
+    embark: {
+        manifest: string;
+        formats: string[];
+    };
+}
+
 export interface CaptainProject {
     schema: string;
     project: {
@@ -14,6 +28,7 @@ export interface CaptainProject {
     };
 
     system?: CaptainSystemRequirements;
+    packaging?: CaptainPackagingConfig;
 
     versionLanes: Record<
         string,

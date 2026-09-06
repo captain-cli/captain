@@ -504,3 +504,56 @@ captain deploy prepare --skip-validate
 ```
 
 The command keeps Dockhand responsible for runtime port assignment and keeps Servicewright responsible for rendering and validating systemd units.
+
+---
+
+## Native Package Orchestration
+
+Captain can coordinate the build-to-native-package handoff without taking ownership of Stager or Embark behavior.
+
+A project declares its packaging manifests in `manifest/captain.project.json`:
+
+```json
+{
+  "packaging": {
+    "stager": {
+      "manifest": "manifest/stager.linux.json",
+      "target": "linux"
+    },
+    "embark": {
+      "manifest": "manifest/embark.package.json",
+      "formats": ["deb", "rpm"]
+    }
+  }
+}
+```
+
+Preview the resolved handoff:
+
+```bash
+captain package plan
+captain package plan --format rpm
+```
+
+Execute the pipeline:
+
+```bash
+captain package build
+captain package build --format deb
+captain package build --skip-build --format rpm
+```
+
+Captain owns the orchestration workspace:
+
+```text
+.captain/artifacts/<package>       Captain build artifact
+.captain/staged/<target>/<package> Stager output
+.captain/packages/<format>         Embark output
+```
+
+Stager and Embark remain separate executables. By default Captain invokes `stager` and `embark` from `PATH`. Development checkouts can override either command with a JSON string array:
+
+```bash
+export CAPTAIN_STAGER_COMMAND='["/path/to/stager/.venv/bin/stager"]'
+export CAPTAIN_EMBARK_COMMAND='["node","/path/to/embark/dist/cli.js"]'
+```
