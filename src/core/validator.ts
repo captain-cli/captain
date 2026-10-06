@@ -75,7 +75,7 @@ export async function validateCaptainProject(rootDir: string): Promise<Validatio
     try {
         project = await readCaptainProject(rootDir);
     } catch (error) {
-        errors.push(`Unable to read captain.project.json: ${(error as Error).message}`);
+        errors.push(`Unable to read manifest.json: ${(error as Error).message}`);
         return { valid: false, errors, warnings };
     }
 
@@ -94,19 +94,19 @@ export async function validateCaptainProject(rootDir: string): Promise<Validatio
     }
 
     if (!project.schema) {
-        errors.push("captain.project.json is missing schema.");
+        errors.push("manifest.json is missing schema.");
     }
 
     if (!project.project?.name) {
-        errors.push("captain.project.json is missing project.name.");
+        errors.push("manifest.json is missing project.name.");
     }
 
     if (!project.project?.type) {
-        errors.push("captain.project.json is missing project.type.");
+        errors.push("manifest.json is missing project.type.");
     }
 
     if (!project.project?.version) {
-        errors.push("captain.project.json is missing project.version.");
+        errors.push("manifest.json is missing project.version.");
     } else if (!isValidVersion(project.project.version)) {
         errors.push(`Invalid project version: ${project.project.version}`);
     }

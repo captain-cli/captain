@@ -1,0 +1,71 @@
+{
+  "schema": "captain/manifest/v1",
+  "project": {
+    "name": "captain-hello",
+    "type": "application",
+    "version": "1.0.0"
+  },
+  "versionLanes": {},
+  "components": [],
+  "build": {
+    "schema": "captain/build/v0.1",
+    "application": {
+      "name": "captain-hello",
+      "type": "native",
+      "language": "javascript"
+    },
+    "vendor": [],
+    "environment": {
+      "build": [],
+      "runtime": []
+    },
+    "config": {
+      "runtime": []
+    },
+    "build": {
+      "workingDirectory": ".",
+      "commands": [
+        "node build-fixture.cjs"
+      ],
+      "outputs": [
+        "bin/captain-hello"
+      ]
+    },
+    "package": {
+      "name": "captain-hello",
+      "include": [
+        "bin/captain-hello"
+      ],
+      "output": {
+        "directory": ".captain/artifacts"
+      }
+    }
+  },
+  "stager": {
+    "target": "linux",
+    "targets": {
+      "linux": {
+        "directories": [
+          "usr/bin"
+        ],
+        "copies": [
+          {
+            "source": "bin/captain-hello",
+            "path": "usr/bin/captain-hello"
+          }
+        ]
+      }
+    }
+  },
+  "embark": {
+    "formats": [
+      "deb"
+    ],
+    "package": {
+      "name": "captain-hello",
+      "version": "1.0.0",
+      "architecture": "x86_64",
+      "description": "Captain ecosystem native packaging acceptance test"
+    }
+  }
+}

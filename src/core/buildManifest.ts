@@ -1,103 +1,68 @@
-import fs from "node:fs";
-import path from "node:path";
+import { resolveToolConfig } from "./toolManifest.js";
+import type { CaptainBuildManifest } from "../types/build.js";
 
-import {
-    CaptainBuildManifest
-} from "../types/build.js";
-
-export function getBuildManifestPath(
+export async function readBuildManifest(
     rootDir: string
-): string {
-    return path.join(
-        rootDir,
-        "manifest",
-        "captain.build.json"
-    );
+): Promise<CaptainBuildManifest> {
+    const resolved = await resolveToolConfig<CaptainBuildManifest>(rootDir, "build", { required: true });
+    const manifest = resolved!.config;
+
+    validateBuildManifest(manifest);
+    return manifest;
 }
 
-export function readBuildManifest(
-    rootDir: string
-): CaptainBuildManifest {
-    const manifestPath =
-        getBuildManifestPath(
-            rootDir
-        );
-
-    if (
-        !fs.existsSync(
-            manifestPath
-        )
-    ) {
-        throw new Error(
-            `Build manifest not found: ${manifestPath}`
-        );
+function validateExecution(name: string, build: CaptainBuildManifest["build"]): void {
+    if (!build || !Array.isArray(build.commands)) {
+        throw new Error(`${name}.commands must be an array`);
     }
+    if (!Array.isArray(build.outputs)) {
+        throw new Error(`${name}.outputs must be an array`);
+    }
+}
 
-    const raw =
-        fs.readFileSync(
-            manifestPath,
-            "utf8"
-        );
-
-    const parsed =
-        JSON.parse(
-            raw
-        ) as CaptainBuildManifest;
-
-    validateBuildManifest(
-        parsed
-    );
-
-    return parsed;
+function validatePackage(name: string, packageConfig: CaptainBuildManifest["package"]): void {
+    if (!packageConfig || !Array.isArray(packageConfig.include)) {
+        throw new Error(`${name}.include must be an array`);
+    }
 }
 
 function validateBuildManifest(
     manifest: CaptainBuildManifest
 ): void {
     if (
-        manifest.schema !==
-        "captain/build/v0.1"
+        manifest.schema !== "captain/build/v0.1" &&
+        manifest.schema !== "captain/build/v0.2"
     ) {
         throw new Error(
             `Unsupported build manifest schema: ${manifest.schema}`
         );
     }
 
-    if (
-        !manifest.application?.name
-    ) {
-        throw new Error(
-            "Build manifest application.name is required"
-        );
+    if (!manifest.application?.name) {
+        throw new Error("Build manifest application.name is required");
     }
 
-    if (
-        !Array.isArray(
-            manifest.build?.commands
-        )
-    ) {
-        throw new Error(
-            "Build manifest build.commands must be an array"
-        );
+    if (manifest.schema === "captain/build/v0.1") {
+        validateExecution("Build manifest build", manifest.build);
+        validatePackage("Build manifest package", manifest.package);
+        return;
     }
 
-    if (
-        !Array.isArray(
-            manifest.build?.outputs
-        )
-    ) {
-        throw new Error(
-            "Build manifest build.outputs must be an array"
-        );
+    if (!manifest.targets || typeof manifest.targets !== "object" || Array.isArray(manifest.targets)) {
+        throw new Error("Build manifest targets must be an object");
     }
 
-    if (
-        !Array.isArray(
-            manifest.package?.include
-        )
-    ) {
-        throw new Error(
-            "Build manifest package.include must be an array"
-        );
+    const targetNames = Object.keys(manifest.targets);
+    if (targetNames.length === 0) {
+        throw new Error("Build manifest targets must contain at least one target");
+    }
+
+    if (manifest.defaultTarget && !manifest.targets[manifest.defaultTarget]) {
+        throw new Error(`Build manifest defaultTarget '${manifest.defaultTarget}' does not exist`);
+    }
+
+    for (const [targetName, target] of Object.entries(manifest.targets)) {
+        validateExecution(`Build target '${targetName}' build`, target.build);
+        validatePackage(`Build target '${targetName}' package`, target.package);
     }
 }

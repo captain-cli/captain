@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-    CaptainBuildManifest
+    CaptainBuildPackage
 } from "../types/build.js";
 
 export interface BuildPackageResult {
@@ -140,7 +140,7 @@ function copyGlobEntry(
 
 export function packageBuild(
     rootDir: string,
-    manifest: CaptainBuildManifest
+    manifest: { package: CaptainBuildPackage }
 ): BuildPackageResult {
     const artifactDirectory =
         path.resolve(

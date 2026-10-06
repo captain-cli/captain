@@ -223,50 +223,24 @@ and turns them into lanes/components.
 
 ## Installation and Local Development
 
-From the Captain repo:
+Captain is now the orchestration engine. Build and test it from the Captain repo:
 
 ```bash
 npm install
 npm run build
+npm test
 ```
 
-Run the compiled CLI directly:
+The user-facing executable is owned by the sibling `captain-cli` project. Develop both side-by-side and link/install Captain into the CLI package, then run:
 
 ```bash
-node dist/cli.js --help
+cd ../captain-cli
+npm install
+npm run build
+node dist/index.js --help
 ```
 
-Or, because the build marks the CLI executable:
-
-```bash
-./dist/cli.js --help
-```
-
-During development, from another test project inside `test-projects/`, use relative paths:
-
-```bash
-../../dist/cli.js --help
-```
-
-The package exposes the CLI command:
-
-```json
-"bin": {
-  "captain": "./dist/cli.js"
-}
-```
-
-After linking locally:
-
-```bash
-npm link
-```
-
-you can run:
-
-```bash
-captain --help
-```
+`captain-cli` exposes the installed `captain` binary while Captain remains reusable by non-terminal consumers.
 
 ---
 
@@ -692,7 +666,7 @@ src/index.ts
 package.json
 README.md
 manifest/master_manifest.json
-dist/cli.js
+dist/index.js
 node_modules/foo/index.js
 EOF
 
@@ -719,7 +693,7 @@ Expected output:
     "package.json",
     "README.md",
     "manifest/master_manifest.json",
-    "dist/cli.js",
+    "dist/index.js",
     "node_modules/foo/index.js"
   ]
 }

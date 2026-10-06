@@ -553,7 +553,7 @@ export function printToolDoctor(): number {
         console.log("");
 
         console.log(
-            "  captain tools install all --print"
+            "  captain install all --print"
         );
     }
 

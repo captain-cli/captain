@@ -5,7 +5,7 @@ import {
 } from "node:child_process";
 
 import {
-    CaptainBuildManifest
+    CaptainBuildExecution
 } from "../types/build.js";
 
 export interface BuildRunResult {
@@ -16,7 +16,7 @@ export interface BuildRunResult {
 
 export function runBuild(
     rootDir: string,
-    manifest: CaptainBuildManifest
+    manifest: { build: CaptainBuildExecution }
 ): BuildRunResult {
     const workingDirectory =
         path.resolve(

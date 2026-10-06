@@ -5,7 +5,9 @@ import { spawnSync } from "node:child_process";
 import { readBuildManifest } from "./buildManifest.js";
 import { packageBuild } from "./buildPackager.js";
 import { runBuild } from "./buildRunner.js";
-import type { CaptainProject, CaptainPackagingConfig } from "../types/manifest.js";
+import { resolveBuildTarget } from "./buildTarget.js";
+import { resolveToolConfig } from "./toolManifest.js";
+import { assertSystemReady } from "./systemReadiness.js";
 
 export type PackageFormat = "deb" | "rpm";
 
@@ -13,9 +15,8 @@ export interface PackagePipelinePlan {
     applicationName: string;
     artifactRoot: string;
     stagedRoot: string;
-    stagerManifest: string;
+    projectRoot: string;
     stagerTarget: string;
-    embarkManifest: string;
     packageOutputRoot: string;
     formats: PackageFormat[];
 }
@@ -25,38 +26,31 @@ export interface PackagePipelineOptions {
     skipBuild?: boolean;
 }
 
-function readProject(rootDir: string): CaptainProject {
-    const projectPath = path.join(rootDir, "manifest", "captain.project.json");
-    if (!fs.existsSync(projectPath)) {
-        throw new Error(`Captain project manifest not found: ${projectPath}`);
-    }
-    return JSON.parse(fs.readFileSync(projectPath, "utf8")) as CaptainProject;
+interface PackageStagerConfig {
+    target?: string;
+    [key: string]: unknown;
 }
 
-function requirePackaging(project: CaptainProject): CaptainPackagingConfig {
-    if (!project.packaging) {
-        throw new Error("captain.project.json is missing packaging configuration");
-    }
-    if (!project.packaging.stager?.manifest || !project.packaging.stager?.target) {
-        throw new Error("packaging.stager.manifest and packaging.stager.target are required");
-    }
-    if (!project.packaging.embark?.manifest || !Array.isArray(project.packaging.embark.formats)) {
-        throw new Error("packaging.embark.manifest and packaging.embark.formats are required");
-    }
-    return project.packaging;
+interface PackageEmbarkConfig {
+    formats?: string[];
+    [key: string]: unknown;
 }
 
-function assertInsideProject(rootDir: string, relativePath: string, label: string): string {
-    if (path.isAbsolute(relativePath)) {
-        throw new Error(`${label} must be project-relative: ${relativePath}`);
+function requireStagerTarget(config: PackageStagerConfig): string {
+    if (typeof config.target !== "string" || !config.target.trim()) {
+        throw new Error("stager.target is required for native packaging");
     }
-    const projectRoot = path.resolve(rootDir);
-    const resolved = path.resolve(projectRoot, relativePath);
-    const relative = path.relative(projectRoot, resolved);
-    if (relative.startsWith("..") || path.isAbsolute(relative)) {
-        throw new Error(`${label} escapes the project root: ${relativePath}`);
+    return config.target;
+}
+
+function requireEmbarkFormats(config: PackageEmbarkConfig): string[] {
+    if (!Array.isArray(config.formats) || config.formats.length === 0) {
+        throw new Error("embark.formats must contain at least one package format");
     }
-    return resolved;
+    if (config.formats.some(format => typeof format !== "string" || !format.trim())) {
+        throw new Error("embark.formats must contain only non-empty strings");
+    }
+    return config.formats;
 }
 
 function selectFormats(configured: string[], requested?: PackageFormat[]): PackageFormat[] {
@@ -77,30 +71,32 @@ function selectFormats(configured: string[], requested?: PackageFormat[]): Packa
     return requested;
 }
 
-export function createPackagePipelinePlan(rootDir: string, requestedFormats?: PackageFormat[]): PackagePipelinePlan {
-    const project = readProject(rootDir);
-    const packaging = requirePackaging(project);
-    const buildManifest = readBuildManifest(rootDir);
+export async function createPackagePipelinePlan(rootDir: string, requestedFormats?: PackageFormat[]): Promise<PackagePipelinePlan> {
+    const stager = await resolveToolConfig<PackageStagerConfig>(rootDir, "stager", { required: true });
+    const embark = await resolveToolConfig<PackageEmbarkConfig>(rootDir, "embark", { required: true });
+    const stagerTarget = requireStagerTarget(stager!.config);
+    const embarkFormats = requireEmbarkFormats(embark!.config);
+    const buildManifest = await readBuildManifest(rootDir);
+    const selectedBuild = resolveBuildTarget(buildManifest);
     const artifactRoot = path.resolve(
         rootDir,
-        buildManifest.package.output.directory,
-        buildManifest.package.name,
+        selectedBuild.package.output.directory,
+        selectedBuild.package.name,
     );
     const stagedRoot = path.resolve(
         rootDir,
-        packaging.stagingRoot ?? `.captain/staged/${packaging.stager.target}/${buildManifest.package.name}`,
+        `.captain/staged/${stagerTarget}/${selectedBuild.package.name}`,
     );
-    const packageOutputRoot = path.resolve(rootDir, packaging.outputRoot ?? ".captain/packages");
+    const packageOutputRoot = path.resolve(rootDir, ".captain/packages");
 
     return {
         applicationName: buildManifest.application.name,
         artifactRoot,
         stagedRoot,
-        stagerManifest: assertInsideProject(rootDir, packaging.stager.manifest, "Stager manifest"),
-        stagerTarget: packaging.stager.target,
-        embarkManifest: assertInsideProject(rootDir, packaging.embark.manifest, "Embark manifest"),
+        projectRoot: path.resolve(rootDir),
+        stagerTarget,
         packageOutputRoot,
-        formats: selectFormats(packaging.embark.formats, requestedFormats),
+        formats: selectFormats(embarkFormats, requestedFormats),
     };
 }
 
@@ -133,12 +129,19 @@ function runTool(prefix: string[], args: string[], cwd: string, label: string): 
     }
 }
 
-export function executePackagePipeline(rootDir: string, options: PackagePipelineOptions = {}): PackagePipelinePlan {
-    const plan = createPackagePipelinePlan(rootDir, options.formats);
-    const buildManifest = readBuildManifest(rootDir);
+export async function executePackagePipeline(
+    rootDir: string,
+    options: PackagePipelineOptions = {},
+): Promise<PackagePipelinePlan> {
+    await assertSystemReady(rootDir);
+
+    const plan = await createPackagePipelinePlan(rootDir, options.formats);
+    const buildManifest = await readBuildManifest(rootDir);
+    const selectedBuild = resolveBuildTarget(buildManifest);
+    const executionManifest = { build: selectedBuild.build, package: selectedBuild.package };
 
     if (!options.skipBuild) {
-        const buildResult = runBuild(rootDir, buildManifest);
+        const buildResult = runBuild(rootDir, executionManifest);
         if (buildResult.failedCommand) {
             throw new Error(`Build failed: ${buildResult.failedCommand}`);
         }
@@ -147,7 +150,7 @@ export function executePackagePipeline(rootDir: string, options: PackagePipeline
         }
     }
 
-    const artifact = packageBuild(rootDir, buildManifest);
+    const artifact = packageBuild(rootDir, executionManifest);
     if (!artifact.success) {
         throw new Error(`Artifact packaging failed; missing entries: ${artifact.missingEntries.join(", ")}`);
     }
@@ -159,7 +162,7 @@ export function executePackagePipeline(rootDir: string, options: PackagePipeline
         commandPrefix("CAPTAIN_STAGER_COMMAND", "stager"),
         [
             "apply",
-            plan.stagerManifest,
+            "--project", plan.projectRoot,
             "--target", plan.stagerTarget,
             "--source-root", plan.artifactRoot,
             "--root", plan.stagedRoot,
@@ -178,7 +181,7 @@ export function executePackagePipeline(rootDir: string, options: PackagePipeline
                 format,
                 "build",
                 "--staged", plan.stagedRoot,
-                "--package", plan.embarkManifest,
+                "--project", plan.projectRoot,
                 "--output", output,
             ],
             rootDir,

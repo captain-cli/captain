@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-export type DeployPrepareOptions = {
+export type ProvisionPrepareOptions = {
     servicewrightConfig?: string;
     writeConfig?: string;
     writeEnv?: string;
@@ -86,12 +86,12 @@ function printMissingToolHelp(toolName: "dockhand" | "servicewright"): void {
     console.error("");
     console.error("Install or inspect the install command with:");
     console.error("");
-    console.error(`  captain tools install ${toolName} --print`);
+    console.error(`  captain install ${toolName} --print`);
 }
 
-export async function prepareDeploy(
+export async function prepareProvision(
     projectRoot: string,
-    options: DeployPrepareOptions,
+    options: ProvisionPrepareOptions,
 ): Promise<number> {
     const rootDir = resolvePath(projectRoot, options.root || ".");
     const servicewrightConfig = resolvePath(rootDir, options.servicewrightConfig || "servicewright.json");
@@ -110,7 +110,7 @@ export async function prepareDeploy(
         console.error("");
         console.error("Create one in the project repo, then rerun:");
         console.error("");
-        console.error("  captain deploy prepare --servicewright-config servicewright.json");
+        console.error("  captain provision prepare --servicewright-config servicewright.json");
         return 1;
     }
 
@@ -186,7 +186,7 @@ export async function prepareDeploy(
     }
 
     if (options.printOnly) {
-        console.log("Captain deploy prepare command plan:");
+        console.log("Captain provision prepare command plan:");
         console.log("");
         for (const spec of commands) {
             console.log(`# ${spec.label}`);
@@ -240,7 +240,7 @@ export async function prepareDeploy(
     }
 
     console.log("");
-    console.log("Captain deploy prepare complete.");
+    console.log("Captain provision prepare complete.");
     console.log(`Resolved config: ${resolvedConfig}`);
     console.log(`Environment dir: ${envDir}`);
     console.log(`Systemd units: ${outputDir}`);

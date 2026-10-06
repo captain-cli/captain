@@ -35,7 +35,7 @@ export function printDockhandMissingHelp(configPath: string): void {
     console.error("");
     console.error("Install guidance:");
     console.error("");
-    console.error("  captain tools install dockhand --print");
+    console.error("  captain install dockhand --print");
     console.error("");
     console.error("Or install directly from the captain-cli org:");
     console.error("");

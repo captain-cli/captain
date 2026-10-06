@@ -47,14 +47,25 @@ export interface CaptainBuildPackage {
     output: CaptainBuildPackageOutput;
 }
 
+export interface CaptainBuildTarget {
+    build: CaptainBuildExecution;
+    package: CaptainBuildPackage;
+}
+
 export interface CaptainBuildManifest {
     schema: string;
     application: CaptainBuildApplication;
     vendor: CaptainBuildVendorDependency[];
     environment: CaptainBuildEnvironment;
     config: CaptainBuildConfig;
-    build: CaptainBuildExecution;
-    package: CaptainBuildPackage;
+
+    /** captain/build/v0.1 single-build form. */
+    build?: CaptainBuildExecution;
+    package?: CaptainBuildPackage;
+
+    /** captain/build/v0.2 named-target form. */
+    defaultTarget?: string;
+    targets?: Record<string, CaptainBuildTarget>;
 }
 
 export interface CaptainBuildVendorPaths {

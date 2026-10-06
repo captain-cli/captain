@@ -4,556 +4,244 @@
     <img src="./assets/captain-banner.png" alt="Captain - Captain's Manifest" width="100%" />
 </p>
 
-Captain is a CLI tool for generating and maintaining **Captain's Manifest** files inside monolithic or multi-component projects.
+Captain is the orchestration engine for the **Captain ecosystem**. It coordinates project metadata, builds, packaging, environment preparation, local service lifecycle, ecosystem tooling, and publishing without allowing those domains to collapse into one tool. The user-facing `captain` executable is provided by the separate `captain-cli` package.
 
-Captain helps projects define:
+## One Captain-owned manifest
 
-- project metadata
-- version lanes
-- components
-- generated master manifests
-- generated bump rules
-- version bump analysis
+A Captain project has one source-of-truth manifest:
 
-The goal is to avoid hardcoding version ownership rules inside scripts, GitHub Actions, or individual applications.
-
----
-
-## Package
-
-```bash
-@captain/manifest
+```text
+project/
+└── manifest.json
 ```
 
-## CLI
+The document uses the shared `captain/manifest/v1` contract defined by Captain Core.
 
-```bash
-captain
+```json
+{
+  "schema": "captain/manifest/v1",
+  "project": {
+    "name": "vibrancy-nucleus",
+    "type": "native",
+    "version": "1.0.0"
+  },
+  "versionLanes": {},
+  "components": [],
+  "system": {},
+  "build": {},
+  "stager": {},
+  "embark": {},
+  "dockhand": {},
+  "servicewright": {}
+}
 ```
 
----
+Captain Core owns project selection, Captain-owned manifest resolution, shared manifest loading/validation, common models/errors, and filesystem safety. Captain owns orchestration. Each ecosystem tool owns the semantics of its configuration.
 
-## Install
+Captain supports monolithic, split, and hybrid manifests. The root `manifest.json` is always authoritative; tool-specific files under `manifests/` are still Captain-owned and are resolved before being handed to their respective tools.
 
-For local development inside this repository:
+## Ecosystem boundaries
+
+```text
+Captain Core
+├── project + manifest contracts
+├── shared discovery
+├── shared path safety
+└── shared models/errors
+
+Captain CLI
+└── command parsing, terminal UX, project selection, exit behavior
+
+Captain
+└── orchestration engine and workflow APIs
+
+Outfit
+└── host/system capabilities
+
+Stager
+└── installation filesystem layout
+
+Embark
+└── native package generation
+
+Dockhand
+└── current-host environment preparation
+
+ServiceWright
+└── local service lifecycle
+
+SchemaWright
+└── database/schema lifecycle artifacts
+
+Deploy tool (future)
+└── remote server/fleet rollout
+```
+
+## Command vocabulary
+
+`captain-cli` exposes the user-facing command vocabulary while delegating orchestration to Captain. The command names are intentionally reserved by responsibility:
+
+```text
+captain build       build the project
+captain package     produce installable/native artifacts
+captain provision   prepare the current host/application
+
+captain start
+captain status
+captain restart
+captain stop
+captain remove      local application/service lifecycle
+
+captain install     install Captain ecosystem tools
+captain deploy      reserved for future remote server/fleet rollout
+```
+
+`deploy` must not be used for local service management. `install` must not be used for application deployment because it is reserved for installing Captain ecosystem tooling.
+
+## Development
 
 ```bash
 npm install
 npm run build
+npm test
 ```
 
-Run the CLI in development mode:
+Captain itself now builds as a library. For the executable, develop/install the sibling `captain-cli` package.
+
+Captain CLI project commands operate on the selected project directory. Without `--project`, the CLI uses the current working directory and expects `manifest.json` there; it does not silently select a different project.
 
 ```bash
-npm run dev -- --help
+captain build
+captain --project /srv/my-project build
 ```
 
-Run the compiled CLI:
-
-```bash
-node dist/cli.js --help
-```
-
----
-
-## Intended Usage Inside a Project
-
-Inside a project repository:
+## Initialize a project
 
 ```bash
 captain init --name my-project --type monolith --version 1.0.0
 ```
 
-Captain will generate:
+Captain creates the canonical root manifest and generated release metadata:
 
 ```text
-manifest/
-├── captain.project.json
-├── master_manifest.json
-└── bump_rules.json
+manifest.json
+
+.captain/
+└── generated/
+    ├── master_manifest.json
+    └── bump_rules.json
 ```
 
----
+Generated files are derived data; the project-root `manifest.json` remains the source of truth.
 
-## Core Concepts
-
-### Project
-
-The project is the top-level product or repository.
-
-Example:
-
-```json
-{
-  "name": "crispy-disco",
-  "type": "monolith",
-  "version": "1.0.5"
-}
-```
-
-### Version Lane
-
-A version lane is a named version track.
-
-Examples:
+Tool configuration can stay inline or be split into Captain-owned files:
 
 ```text
-configuration
-database
-apis
-dashboard
-audioEngine
+<project root>/
+├── manifest.json
+└── manifests/
+    ├── build.json
+    ├── stager.json
+    ├── embark.json
+    ├── dockhand.json
+    ├── servicewright.json
+    └── schemawright.json
 ```
 
-A version lane lets a large project evolve in sections without forcing every change to bump the full project version.
+A project may mix inline and referenced tool configuration. A tool cannot be configured both ways at the same time.
 
-### Component
+## Existing project/version features
 
-A component is a folder, service, app, database manifest group, package, tool, or system area that belongs to a version lane.
+The unified manifest still owns Captain's established project model:
 
-Examples:
-
-```text
-apis/                  -> apis version lane
-database/              -> database version lane
-interfaces/dashboard/  -> dashboard version lane
-```
-
----
-
-## Generated Files
-
-Captain is responsible for generating and maintaining project manifest files.
-
-```text
-manifest/
-├── captain.project.json
-├── master_manifest.json
-└── bump_rules.json
-```
-
-### `captain.project.json`
-
-The source project manifest used by Captain.
-
-It describes the project, version lanes, and components.
-
-### `master_manifest.json`
-
-The release-facing manifest.
-
-Example:
-
-```json
-{
-  "name": "crispy-disco",
-  "home-page": "crispydisco.com",
-  "version": "1.0.5",
-  "components": {
-    "configuration": {
-      "version": "1.2.384"
-    },
-    "database": {
-      "version": "1.2.384"
-    },
-    "apis": {
-      "version": "1.0.5"
-    },
-    "dashboard": {
-      "version": "1.0.5"
-    },
-    "audioEngine": {
-      "version": "1.0.5"
-    }
-  }
-}
-```
-
-### `bump_rules.json`
-
-A generated helper file used to analyze changed files and determine which version lanes should bump.
-
-The goal is for this file to be generated from Captain's project/component definitions instead of hand-maintained.
-
----
-
-## Planned Commands
-
-```bash
-captain init
-captain scan
-captain lane add
-captain component add
-captain generate
-captain analyze-bumps
-captain bump
-captain validate
-```
-
----
-
-## Command Goals
-
-### `captain init`
-
-Initialize Captain's Manifest inside a project.
-
-Example:
-
-```bash
-captain init --name simple-monolith --type monolith --version 1.0.0
-```
-
-Expected generated structure:
-
-```text
-manifest/
-├── captain.project.json
-├── master_manifest.json
-└── bump_rules.json
-```
-
-### `captain lane add`
-
-Add a version lane.
-
-Example:
-
-```bash
-captain lane add apis --type service-group --version 1.0.0
-```
-
-### `captain component add`
-
-Add a project component and assign it to a version lane.
-
-Example:
-
-```bash
-captain component add apis --path apis --lane apis --type api-group
-```
-
-### `captain generate`
-
-Generate derived manifest files from `captain.project.json`.
-
-Example outputs:
-
-```text
-manifest/master_manifest.json
-manifest/bump_rules.json
-```
-
-### `captain scan`
-
-Scan the project structure and suggest possible components.
-
-Example project:
-
-```text
-simple-monolith/
-├── apis/
-├── services/
-└── database/
-```
-
-Suggested components:
-
-```text
-apis/      -> api-group
-services/  -> service-group
-database/  -> database
-```
-
-### `captain analyze-bumps`
-
-Analyze changed files and produce a bump plan.
-
-Example:
-
-```bash
-captain analyze-bumps --base origin/main
-```
-
-Example output:
-
-```json
-{
-  "shouldBump": true,
-  "bumps": {
-    "apis": "patch",
-    "database": "patch"
-  },
-  "matches": {
-    "apis": [
-      "apis/media-api/routes/channel-guide.ts"
-    ],
-    "database": [
-      "database/manifests/media.json"
-    ]
-  }
-}
-```
-
-### `captain bump`
-
-Apply version bumps manually or from a generated bump plan.
-
-Examples:
-
-```bash
-captain bump apis patch
-captain bump database patch
-captain bump --plan .captain/bump-plan.json
-```
-
-### `captain validate`
-
-Validate Captain manifest files.
-
-Validation should check:
-
-- required files exist
-- version lanes are valid
-- components reference existing lanes
-- component paths are valid
-- generated bump rules match the project manifest
-- version values are valid semantic versions
-
----
-
-## Development Scripts
-
-```bash
-npm run dev -- --help
-npm run build
-npm run start -- --help
-npm run clean
-npm run check
-```
-
----
-
-## Initial Test Project
-
-The first development target is a small monolithic project:
-
-```text
-simple-monolith/
-├── apis/
-├── services/
-└── database/
-```
-
-Captain should support this flow:
-
-```bash
-captain init --name simple-monolith --type monolith --version 1.0.0
-
-captain lane add apis --type service-group --version 1.0.0
-captain lane add services --type service-group --version 1.0.0
-captain lane add database --type database --version 1.0.0
-
-captain component add apis --path apis --lane apis --type api-group
-captain component add services --path services --lane services --type service-group
-captain component add database --path database --lane database --type database
-
-captain generate
-captain validate
-```
-
-Expected generated release manifest:
-
-```json
-{
-  "name": "simple-monolith",
-  "version": "1.0.0",
-  "components": {
-    "apis": {
-      "version": "1.0.0"
-    },
-    "services": {
-      "version": "1.0.0"
-    },
-    "database": {
-      "version": "1.0.0"
-    }
-  }
-}
-```
-
----
-
-## Design Principle
-
-Captain should avoid hardcoded project knowledge.
-
-The CLI should own the process of creating and updating:
-
-- project manifests
+- project metadata
 - version lanes
-- component mappings
-- bump rules
-- master manifests
+- components
+- generated master release metadata
+- generated bump rules
+- version bump analysis
+- system capability declarations
+- build configuration
 
-GitHub Actions and other automation should call Captain instead of duplicating Captain's logic.
+A version lane is a named version track such as `configuration`, `database`, `apis`, `dashboard`, or `audioEngine`. Components assign project paths or logical subsystems to those lanes.
 
----
+## Build and package flow
 
-## Current Status
-
-Captain is in early development.
-
-The immediate goal is to build enough CLI functionality to initialize and manage the small `simple-monolith` test project before applying the pattern to Crispy Disco.
-
-## Captain Tool Registry
-
-Captain can manage companion tools through the `tools` command. Built-in tools are registered in the CLI, and project-local tools can be added from a `captain/tool.json` manifest.
-
-### Built-in companion tools
-
-Captain currently knows about:
-
-- `dockhand` — runtime port/env preparation and reservation management
-- `servicewright` — project-agnostic systemd service unit generation
-
-List available tools:
-
-```bash
-captain tools list
-```
-
-Check whether companion tool binaries are installed:
-
-```bash
-captain tools doctor
-```
-
-Print the install command for Servicewright:
-
-```bash
-captain tools install servicewright --print
-```
-
-Install all known companion tools into a local virtual environment:
-
-```bash
-captain tools install all --venv .venv
-export PATH="$PWD/.venv/bin:$PATH"
-```
-
-### Project-local registry
-
-A reusable tool project can ship a Captain manifest at:
+The intended local build/package sequence is:
 
 ```text
-captain/tool.json
+manifest.json
+        ↓
+Captain build
+        ↓
+Captain artifact
+        ↓
+Stager
+        ↓
+installation filesystem
+        ↓
+Embark
+        ↓
+native package
 ```
 
-Register it in the consuming project:
-
-```bash
-captain tools registry add ./captain/tool.json
-```
-
-Captain stores project-local registry entries in:
+Environment preparation and service lifecycle remain separate responsibilities:
 
 ```text
-.captain/tools.json
+native package / application
+        ↓
+Captain provision
+        ↓
+Dockhand environment preparation
+        ↓
+ServiceWright registration
+        ↓
+start / status / restart / stop / remove
 ```
 
-Show project-local registry entries:
+Remote rollout is intentionally outside this workflow and reserved for the future `captain deploy` namespace.
+
+### Named build targets
+
+`captain/build/v0.2` projects can declare multiple named build targets while
+`captain/build/v0.1` remains supported for single-build projects. A target owns its
+build commands, expected outputs, and Captain artifact definition:
 
 ```bash
-captain tools registry list
+captain build targets
+captain build plan --target web
+captain build run --target web
+captain build package --target web
 ```
 
-## Deploy Preparation
+A `defaultTarget` lets normal `captain build` behavior remain concise. Target names
+are project-defined; Captain does not hard-code concepts such as web or Electron.
 
-Captain can orchestrate the Dockhand → Servicewright runtime preparation flow for projects that ship a `servicewright.json` file.
+## Package publishing
+
+Captain keeps package creation separate from network publishing. Finished native packages can be published after a successful local package build:
 
 ```bash
-captain deploy prepare
+captain package publish --dry-run
+captain package publish --destination github
+captain package publish --destination github --format deb
 ```
 
-The default flow is:
-
-```text
-servicewright.json
-  ↓
-dockhand servicewright reconcile
-  ↓
-.captain/runtime/servicewright.resolved.json
-.captain/runtime/environment/*.env
-  ↓
-servicewright generate
-  ↓
-systemd_units/*.service
-  ↓
-servicewright validate
-```
-
-Useful options:
-
-```bash
-captain deploy prepare --dry-run
-captain deploy prepare --print
-captain deploy prepare --servicewright-config servicewright.json
-captain deploy prepare --output-dir ./systemd_units
-captain deploy prepare --skip-validate
-```
-
-The command keeps Dockhand responsible for runtime port assignment and keeps Servicewright responsible for rendering and validating systemd units.
-
----
-
-## Native Package Orchestration
-
-Captain can coordinate the build-to-native-package handoff without taking ownership of Stager or Embark behavior.
-
-A project declares its packaging manifests in `manifest/captain.project.json`:
+Publish destinations are Captain-owned project configuration:
 
 ```json
 {
-  "packaging": {
-    "stager": {
-      "manifest": "manifest/stager.linux.json",
-      "target": "linux"
-    },
-    "embark": {
-      "manifest": "manifest/embark.package.json",
-      "formats": ["deb", "rpm"]
+  "publish": {
+    "destinations": {
+      "github": {
+        "provider": "github-release",
+        "repository": "owner/repository"
+      }
     }
   }
 }
 ```
 
-Preview the resolved handoff:
+The GitHub Release provider defaults to tag and release name `v<project.version>`. Optional `tag`, `releaseName`, `draft`, `prerelease`, and `generateReleaseNotes` fields can override release behavior. Authentication is read from `GH_TOKEN` or `GITHUB_TOKEN`; credentials do not belong in the manifest.
 
-```bash
-captain package plan
-captain package plan --format rpm
-```
-
-Execute the pipeline:
-
-```bash
-captain package build
-captain package build --format deb
-captain package build --skip-build --format rpm
-```
-
-Captain owns the orchestration workspace:
-
-```text
-.captain/artifacts/<package>       Captain build artifact
-.captain/staged/<target>/<package> Stager output
-.captain/packages/<format>         Embark output
-```
-
-Stager and Embark remain separate executables. By default Captain invokes `stager` and `embark` from `PATH`. Development checkouts can override either command with a JSON string array:
-
-```bash
-export CAPTAIN_STAGER_COMMAND='["/path/to/stager/.venv/bin/stager"]'
-export CAPTAIN_EMBARK_COMMAND='["node","/path/to/embark/dist/cli.js"]'
-```
+The destination map is intentionally provider-neutral so external mirrors such as S3-compatible storage can be added without coupling package builds to a specific release service.
