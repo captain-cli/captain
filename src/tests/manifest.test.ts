@@ -157,3 +157,18 @@ test("rejects unsupported Captain manifest schemas at the engine boundary", asyn
 
     await assert.rejects(() => readCaptainProject(root), /Unsupported Captain manifest schema/);
 });
+
+test("rejects split manifest references that escape via symlink", async () => {
+    const root = fixture();
+    const outside = fixture();
+    fs.writeFileSync(path.join(outside, "stager.json"), JSON.stringify({
+        schema: "captain/tool-manifest/v1", tool: "stager", config: { target: "linux" },
+    }));
+    fs.symlinkSync(outside, path.join(root, "manifests"), "dir");
+    fs.writeFileSync(path.join(root, "manifest.json"), JSON.stringify({
+        schema: "captain/manifest/v1",
+        project: { name: "sample", type: "native", version: "1.0.0" },
+        manifests: { stager: "manifests/stager.json" },
+    }));
+    await assert.rejects(resolveToolConfig(root, "stager", { required: true }), /escapes project root/);
+});

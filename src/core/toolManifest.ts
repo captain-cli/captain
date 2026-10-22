@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import { readJsonFile } from "./files.js";
 import { getCaptainProjectPath, readCaptainProject } from "./manifest.js";
 import type { CaptainProject } from "../types/manifest.js";
@@ -24,7 +25,7 @@ function validateRelativeReference(reference: string, fieldName: string): string
     }
 
     const normalized = reference.replace(/\\/g, "/");
-    if (path.isAbsolute(normalized)) {
+    if (path.isAbsolute(normalized) || path.win32.isAbsolute(reference) || normalized.startsWith("/")) {
         throw new Error(`${fieldName} must be relative to the project root`);
     }
 
@@ -41,6 +42,12 @@ function resolveInsideProject(rootDir: string, reference: string): string {
     const target = path.resolve(root, reference);
     if (target !== root && !target.startsWith(`${root}${path.sep}`)) {
         throw new Error(`Manifest path escapes project root: ${reference}`);
+    }
+    // Resolve symlinks for existing ancestors to match Captain Core's path safety.
+    const realRoot = fs.realpathSync(root);
+    const existing = fs.existsSync(target) ? fs.realpathSync(target) : target;
+    if (existing !== realRoot && !existing.startsWith(`${realRoot}${path.sep}`)) {
+        throw new Error(`Manifest path escapes project root through symlink: ${reference}`);
     }
     return target;
 }
